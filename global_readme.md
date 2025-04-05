@@ -1,3 +1,10 @@
 <!-- ADD_NEW_PROBLEM_HERE -->
-| 596 | [Classes More Than 5 Students](https://leetcode.com/problems/classes-more-than-5-students/) | Sql | Easy | Aggregation | [Code](./aggregation/0596-classes-more-than-5-students.sql) |  |
-| 1768 | [Merge Strings Alternately](https://leetcode.com/problems/merge-strings-alternately/) | Python | Easy | String | [Code](./string/1768-merge-strings-alternately.py) |  |
+
+# 🧠 LeetCode Problem Archive
+
+This is an auto-generated summary of all problems in this repository.
+
+| 題號 | 題目名稱                             | 類別   | 難度  | Tags | 程式碼連結                                     |
+|------|--------------------------------------|--------|--------|------|------------------------------------------------|
+| 605 | [Can Place Flowers](https://leetcode.com/problems/can-place-flowers) | Array | Easy |  | [Code](./array/0605_can_place_flowers.py) |
+

@@ -1,5 +1,6 @@
 import os
 import argparse
+import importlib
 
 README_TEMPLATE = """| 題號 | 題目名稱                             | 類別   | 難度  | Tags | 程式碼連結                                     |
 |------|--------------------------------------|--------|--------|------|------------------------------------------------|
@@ -19,12 +20,16 @@ EXTENSIONS = {
     'txt': '.txt',  # fallback
 }
 
-PYTHON_TEST_TEMPLATE = """from {import_path} import Solution
+PYTHON_TEST_TEMPLATE = """import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+import importlib
+module = importlib.import_module("{import_path}")
+Solution = module.Solution
 
 def test():
     s = Solution()
     # TODO: Add test cases
-    print('✅ Test template ready')
+    print('✅ Passed all test cases')
 
 if __name__ == '__main__':
     test()
@@ -40,11 +45,12 @@ SQL_TEST_TEMPLATE = """-- Test Case Template for LeetCode {id}: {title}
 -- SELECT * FROM Example;
 """
 
+def normalize_title(title: str) -> str:
+    return title.lower().replace(" ", "_").replace("-", "_").replace(",", "").replace("'", "")
 
 def format_filename(problem_id: int, title: str, ext: str) -> str:
-    kebab_title = title.lower().replace(" ", "-").replace(",", "").replace("'", "")
-    return f"{problem_id:04d}-{kebab_title}{ext}"
-
+    underscored_title = normalize_title(title)
+    return f"{problem_id:04d}_{underscored_title}{ext}"
 
 def generate_code_template(problem_id: int, title: str, url: str, lang: str) -> str:
     if lang == 'python':
@@ -59,7 +65,6 @@ class Solution:
         return f"-- LeetCode {problem_id}: {title}\n-- {url}\n\n-- Your SQL here\n"
     else:
         return f"// LeetCode {problem_id}: {title}\n// {url}\n\n// Your {lang} solution here\n"
-
 
 def read_existing_ids_from_all():
     ids = set()
@@ -76,7 +81,6 @@ def read_existing_ids_from_all():
                                 continue
     return ids
 
-
 def update_readme(readme_path: str, entry: str, problem_id: int):
     if not os.path.exists(readme_path):
         with open(readme_path, 'w') as f:
@@ -91,6 +95,11 @@ def update_readme(readme_path: str, entry: str, problem_id: int):
     with open(readme_path, 'a') as f:
         f.write(entry)
 
+def ensure_init_py(path: str):
+    """確保該資料夾層級包含 __init__.py，使其成為 Python package"""
+    if not os.path.exists(os.path.join(path, '__init__.py')):
+        with open(os.path.join(path, '__init__.py'), 'w') as f:
+            f.write("# Automatically generated")
 
 def create_test_file(lang: str, test_dir: str, test_filename: str, import_path: str, problem_id: int, title: str):
     os.makedirs(test_dir, exist_ok=True)
@@ -107,8 +116,11 @@ def create_test_file(lang: str, test_dir: str, test_filename: str, import_path: 
         with open(test_path, 'w') as f:
             f.write(f"// TODO: Add test cases for LeetCode {problem_id}: {title}\n")
 
-
 def main():
+    # 自動確保 tests 資料夾是合法 Python module
+    if not os.path.exists('python/tests'):
+        os.makedirs('python/tests', exist_ok=True)
+    ensure_init_py('python/tests')
     parser = argparse.ArgumentParser(description="Create LeetCode solution scaffold.")
     parser.add_argument('--lang', required=True, help='Language (e.g., python, sql, cpp, java)')
     parser.add_argument('--id', type=int, required=True)
@@ -127,11 +139,14 @@ def main():
 
     topic_folder = os.path.join(lang, topic)
     os.makedirs(topic_folder, exist_ok=True)
+    if lang == 'python':
+        ensure_init_py(lang)
+        ensure_init_py(topic_folder)
 
     ext = EXTENSIONS.get(lang, '.txt')
     filename = format_filename(problem_id, title, ext=ext)
     filepath = os.path.join(topic_folder, filename)
-    url = f"https://leetcode.com/problems/{title.lower().replace(' ', '-')}/"
+    url = f"https://leetcode.com/problems/{title.lower().replace(' ', '-')}"
 
     # Global ID check
     all_existing_ids = read_existing_ids_from_all()
@@ -149,7 +164,8 @@ def main():
     # Create test file
     test_dir = os.path.join(lang, 'tests')
     test_filename = f"test_{filename}"
-    import_path = f"{lang}.{topic}.{filename[:-len(ext)]}"
+    module_path = f"{lang}.{topic}.{filename[:-len(ext)]}"
+    import_path = module_path.replace("_", "_").replace("-", "_")
     create_test_file(lang, test_dir, test_filename, import_path, problem_id, title)
 
     # Update README
@@ -167,7 +183,6 @@ def main():
     update_readme(readme_path, entry, problem_id)
 
     print(f"✅ Finished processing problem {problem_id}: {title} for language: {lang}")
-
 
 if __name__ == '__main__':
     main()

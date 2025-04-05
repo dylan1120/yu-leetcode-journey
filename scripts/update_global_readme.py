@@ -1,60 +1,51 @@
-#!/bin/bash
+import os
 
-DRY_RUN=false
-DATE_TAG=false
+LANGUAGES = ["python", "sql", "java", "cpp", "go", "javascript"]
+GLOBAL_README_PATH = "global_readme.md"
+MARKER = "<!-- ADD_NEW_PROBLEM_HERE -->"
 
-while [[ "$1" != "" ]]; do
-  case $1 in
-    --dry-run ) DRY_RUN=true ;;
-    --with-date ) DATE_TAG=true ;;
-  esac
-  shift
-done
+HEADER = """# 🧠 LeetCode Problem Archive
 
-# Step 0: 自動 add 所有變動
-git add .
+This is an auto-generated summary of all problems in this repository.
 
-# Step 1: 找出 staged README 中的題目行
-lines=$(git diff --cached --unified=0 | grep '^+| [0-9]' | sed 's/^+//')
+| 題號 | 題目名稱                             | 類別   | 難度  | Tags | 程式碼連結                                     |
+|------|--------------------------------------|--------|--------|------|------------------------------------------------|
+"""
 
-if [ -z "$lines" ]; then
-  echo "❌ 沒有偵測到任何新增或修改的題目紀錄。"
-  exit 1
-fi
+def collect_all_entries():
+    entries = {}
+    for lang in LANGUAGES:
+        readme_path = os.path.join(lang, "README.md")
+        if not os.path.exists(readme_path):
+            continue
+        with open(readme_path, "r") as f:
+            for line in f:
+                if line.startswith("| ") and "[Code](./" in line:
+                    try:
+                        problem_id = int(line.split("|")[1].strip())
+                        entries[problem_id] = line
+                    except Exception:
+                        continue
+    return dict(sorted(entries.items()))
 
-# Step 2: 從每一行中抓出題號與題目名稱
-problems=()
-while read -r line; do
-  name=$(echo "$line" | cut -d '|' -f3 | grep -oP '\[(.*?)\]' | sed 's/\[//;s/\]//')
-  problems+=("$name")
-done <<< "$lines"
+def update_global_readme():
+    entries = collect_all_entries()
+    entry_text = "".join(entries.values())
 
-# Step 3: 組成 commit message
-count=${#problems[@]}
-summary="feat: solved $count problem"
-[ "$count" -gt 1 ] && summary="${summary}s"
-list=" - [${problems[*]}]"
+    if os.path.exists(GLOBAL_README_PATH):
+        with open(GLOBAL_README_PATH, "r") as f:
+            content = f.read()
+        if MARKER in content:
+            before, _ = content.split(MARKER, 1)
+            new_content = before + MARKER + "\n\n" + HEADER + entry_text + "\n"
+        else:
+            new_content = HEADER + entry_text
+    else:
+        new_content = HEADER + entry_text
 
-# Optional 日期前綴
-if [ "$DATE_TAG" = true ]; then
-  today=$(date +%Y-%m-%d)
-  summary="[$today] $summary"
-fi
+    with open(GLOBAL_README_PATH, "w") as f:
+        f.write(new_content)
+    print("✅ global_readme.md updated with", len(entries), "problems.")
 
-commit_msg="$summary$list"
-
-# Step 4: 顯示或執行
-echo "📦 Commit message will be:"
-echo "$commit_msg"
-
-if [ "$DRY_RUN" = false ]; then
-  echo "🚀 正在推送..."
-  git commit -m "$commit_msg"
-  git push
-  echo "✅ 推送完成。已提交題目："
-  for p in "${problems[@]}"; do
-    echo "- $p"
-  done
-else
-  echo "🧪 Dry run 模式結束，未進行實際提交。"
-fi
+if __name__ == "__main__":
+    update_global_readme()
